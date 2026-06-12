@@ -14,8 +14,10 @@ from app.core.config import (
     ENABLE_OVERLAYS,
     MAX_ANALYSIS_FRAMES,
     MAX_FRAME_WIDTH,
+    MIN_DETECTION_CONFIDENCE,
     OVERLAY_DIR,
     POSE_MODEL_COMPLEXITY,
+    POSE_STATIC_IMAGE_MODE,
     VIDEO_ANALYSIS_END_RATIO,
     VIDEO_ANALYSIS_START_RATIO,
     VIDEO_FRAME_STRIDE,
@@ -61,10 +63,10 @@ class PoseService:
     def pose(self):
         if self._pose is None:
             self._pose = self.mp_pose.Pose(
-                static_image_mode=False,
+                static_image_mode=POSE_STATIC_IMAGE_MODE,
                 model_complexity=POSE_MODEL_COMPLEXITY,
                 enable_segmentation=False,
-                min_detection_confidence=0.45,
+                min_detection_confidence=MIN_DETECTION_CONFIDENCE,
                 min_tracking_confidence=0.45,
             )
         return self._pose

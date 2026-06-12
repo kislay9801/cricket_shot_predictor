@@ -25,6 +25,11 @@ MAX_ANALYSIS_FRAMES = int(os.environ.get("CPM_MAX_FRAMES", "24"))
 MAX_FRAME_WIDTH = int(os.environ.get("CPM_MAX_FRAME_WIDTH", "640"))
 # 0 = lite/fastest, 1 = full (default), 2 = heavy.
 POSE_MODEL_COMPLEXITY = int(os.environ.get("CPM_MODEL_COMPLEXITY", "1"))
+# Static mode re-detects the person on every frame (no frame-to-frame tracking).
+# Off for live video (tracking is faster/smoother); ON for offline reference
+# building, where it recovers far more frames from choppy, multi-cut footage.
+POSE_STATIC_IMAGE_MODE = os.environ.get("CPM_STATIC_IMAGE_MODE", "0") == "1"
+MIN_DETECTION_CONFIDENCE = float(os.environ.get("CPM_MIN_DETECTION_CONFIDENCE", "0.45"))
 # Overlay skeleton images are expensive (encode + disk write per frame) and are
 # no longer shown in the UI, so they are off by default.
 ENABLE_OVERLAYS = os.environ.get("CPM_ENABLE_OVERLAYS", "0") == "1"
