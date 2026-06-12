@@ -18,7 +18,7 @@ export default function Home({ setPage }) {
       </section>
       <section className="relative min-h-[420px] overflow-hidden rounded-2xl border border-line bg-panel shadow-glow">
         <div className="absolute inset-0 grid place-items-center">
-          <div className="pitch-lines">
+          <div className="pitch-lines float">
             <Trophy className="h-16 w-16 text-gold" />
             <span>Pose analytics</span>
           </div>

@@ -4,7 +4,7 @@ import { API_BASE } from "../lib/api";
 export default function ResultDetails({ result }) {
   if (!result) return null;
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+    <div className="stagger grid gap-5 lg:grid-cols-[1fr_1fr]">
       <section className="panel">
         <h2 className="section-title">Top 3 Matches</h2>
         <div className="mt-4 space-y-3">
@@ -47,7 +47,7 @@ export default function ResultDetails({ result }) {
                 <span className="font-semibold text-ink">{value}%</span>
               </div>
               <div className="h-2 rounded-full bg-slate-100">
-                <div className="h-2 rounded-full bg-pitch" style={{ width: `${value}%` }} />
+                <div className="h-2 rounded-full bg-pitch transition-[width] duration-700 ease-out" style={{ width: `${value}%` }} />
               </div>
             </div>
           ))}

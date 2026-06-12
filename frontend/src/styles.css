@@ -146,6 +146,43 @@ button {
   border-radius: 0.625rem;
 }
 
+/* ---- Motion ---- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-fade { animation: fadeIn 200ms ease-out both; }
+.animate-rise { animation: riseIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-pop { animation: popIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Stagger children of a grid/stack that carry .animate-rise via nth-child delay */
+.stagger > * { animation: riseIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade, .animate-rise, .animate-pop, .stagger > *, .float { animation: none !important; }
+}
+
+.float { animation: floaty 5s ease-in-out infinite; }
+
 .pitch-lines {
   display: grid;
   place-items: center;
