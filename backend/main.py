@@ -16,10 +16,11 @@ _default_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 _env_origins = [o.strip() for o in os.environ.get("FRONTEND_ORIGINS", "").split(",") if o.strip()]
 allowed_origins = _default_origins + _env_origins
 
-# Matches localhost dev ports plus *.vercel.app (incl. preview deployments).
+# Matches localhost dev ports plus *.vercel.app and *.onrender.com deployments
+# (including Render's random suffixes, e.g. cricket-frontend-v6f3.onrender.com).
 allowed_origin_regex = os.environ.get(
     "FRONTEND_ORIGIN_REGEX",
-    r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://[a-z0-9-]+\.vercel\.app",
+    r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://[a-z0-9-]+\.(vercel\.app|onrender\.com)",
 )
 
 app.add_middleware(
