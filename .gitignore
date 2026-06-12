@@ -1,0 +1,23 @@
+__pycache__/
+.venv/
+venv/
+node_modules/
+dist/
+.env
+**/.env
+!**/.env.example
+backend/app/storage/uploads/*
+backend/app/storage/overlays/*
+backend/app/storage/sessions/*
+backend/app/storage/debug/*
+!backend/app/storage/.gitkeep
+
+# Raw source clips: input to the dataset build script only, NOT needed at runtime.
+# The app serves from the committed dataset/shots and dataset/players JSON indexes.
+# Folder structure is preserved via the .gitkeep files.
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+!**/.gitkeep

@@ -1,0 +1,39 @@
+export const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+
+async function parseResponse(response) {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || "Request failed");
+  }
+  return payload;
+}
+
+async function request(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throw new Error(`Backend is not reachable at ${API_BASE}. Start FastAPI on port 8000, then retry.`);
+  }
+}
+
+export async function uploadVideo(file, mode) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mode", mode);
+  return parseResponse(await request(`${API_BASE}/upload-video`, { method: "POST", body: form }));
+}
+
+export async function sendWebcamFrame(imageBase64, mode, sessionId) {
+  return parseResponse(
+    await request(`${API_BASE}/webcam-frame`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_base64: imageBase64, mode, session_id: sessionId })
+    })
+  );
+}
+
+export async function fetchResults(sessionId) {
+  const suffix = sessionId ? `?session_id=${sessionId}` : "";
+  return parseResponse(await request(`${API_BASE}/results${suffix}`));
+}

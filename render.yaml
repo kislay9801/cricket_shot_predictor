@@ -1,0 +1,30 @@
+# Render Blueprint: deploys the backend (Docker) and the frontend (static site).
+# In Render: New + > Blueprint > pick this repo. Free tier works; see DEPLOY.md
+# for the memory/cold-start caveats on the backend free plan.
+services:
+  - type: web
+    name: cricket-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /
+    envVars:
+      # Set this to your deployed frontend URL after the first deploy.
+      - key: FRONTEND_ORIGINS
+        sync: false
+
+  - type: web
+    name: cricket-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # Set this to the backend URL Render assigns (e.g. https://cricket-backend.onrender.com).
+      - key: VITE_API_BASE
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
