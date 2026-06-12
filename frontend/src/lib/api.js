@@ -13,14 +13,32 @@ async function parseResponse(response) {
 
 const isLocal = /localhost|127\.0\.0\.1/.test(API_BASE);
 
+// Free-tier hosts return brief 502/503/504s during cold-start and redeploys, and
+// the first request after sleep can fail outright. Retry with backoff so a
+// transient blip recovers silently instead of surfacing as "not reachable".
+const RETRY_STATUSES = new Set([502, 503, 504]);
+const RETRY_DELAYS_MS = [3000, 6000, 10000];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function request(url, options) {
-  try {
-    return await fetch(url, options);
-  } catch (error) {
-    const hint = isLocal
-      ? "Start the FastAPI backend, then retry."
-      : "The server may be waking up (free tier sleeps after inactivity) — wait ~30s and retry.";
-    throw new Error(`Backend is not reachable at ${API_BASE}. ${hint}`);
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      if (RETRY_STATUSES.has(response.status) && attempt < RETRY_DELAYS_MS.length) {
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      const hint = isLocal
+        ? "Start the FastAPI backend, then retry."
+        : "The server may be waking up (free tier sleeps after inactivity) — wait ~30s and retry.";
+      throw new Error(`Backend is not reachable at ${API_BASE}. ${hint}`);
+    }
   }
 }
 
