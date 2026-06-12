@@ -11,8 +11,11 @@ import numpy as np
 
 from app.core.config import (
     DEBUG_DIR,
+    ENABLE_OVERLAYS,
     MAX_ANALYSIS_FRAMES,
+    MAX_FRAME_WIDTH,
     OVERLAY_DIR,
+    POSE_MODEL_COMPLEXITY,
     VIDEO_ANALYSIS_END_RATIO,
     VIDEO_ANALYSIS_START_RATIO,
     VIDEO_FRAME_STRIDE,
@@ -59,12 +62,22 @@ class PoseService:
         if self._pose is None:
             self._pose = self.mp_pose.Pose(
                 static_image_mode=False,
-                model_complexity=1,
+                model_complexity=POSE_MODEL_COMPLEXITY,
                 enable_segmentation=False,
                 min_detection_confidence=0.45,
                 min_tracking_confidence=0.45,
             )
         return self._pose
+
+    @staticmethod
+    def _downscale(frame: np.ndarray) -> np.ndarray:
+        """Shrink wide frames before detection — big speed win, no landmark accuracy
+        loss since MediaPipe returns normalized coordinates."""
+        height, width = frame.shape[:2]
+        if width <= MAX_FRAME_WIDTH:
+            return frame
+        scale = MAX_FRAME_WIDTH / float(width)
+        return cv2.resize(frame, (MAX_FRAME_WIDTH, int(height * scale)), interpolation=cv2.INTER_AREA)
 
     def decode_base64_image(self, image_base64: str) -> np.ndarray:
         payload = image_base64.split(",")[-1]
@@ -122,6 +135,7 @@ class PoseService:
         return frames, overlays, fps, metadata
 
     def _process_frame(self, frame: np.ndarray, session_id: str, index: int) -> Tuple[Optional[PoseFrame], Optional[str]]:
+        frame = self._downscale(frame)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         result = self.pose.process(rgb)
         if not result.pose_landmarks:
@@ -138,7 +152,7 @@ class PoseService:
         embedding = build_embedding(normalized, angles, torso, bat)
         confidence = float(np.mean([lm[3] for lm in landmarks]))
 
-        overlay_url = self._save_overlay(frame, result.pose_landmarks, session_id, index, bat)
+        overlay_url = self._save_overlay(frame, result.pose_landmarks, session_id, index, bat) if ENABLE_OVERLAYS else None
         return PoseFrame(landmarks, normalized, angles, torso, bat, embedding, confidence), overlay_url
 
     def _save_overlay(self, frame: np.ndarray, pose_landmarks, session_id: str, index: int, bat: Dict[str, float]) -> str:

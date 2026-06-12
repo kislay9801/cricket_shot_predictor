@@ -11,11 +11,16 @@ async function parseResponse(response) {
   return payload;
 }
 
+const isLocal = /localhost|127\.0\.0\.1/.test(API_BASE);
+
 async function request(url, options) {
   try {
     return await fetch(url, options);
   } catch (error) {
-    throw new Error(`Backend is not reachable at ${API_BASE}. Start FastAPI on port 8000, then retry.`);
+    const hint = isLocal
+      ? "Start the FastAPI backend, then retry."
+      : "The server may be waking up (free tier sleeps after inactivity) — wait ~30s and retry.";
+    throw new Error(`Backend is not reachable at ${API_BASE}. ${hint}`);
   }
 }
 

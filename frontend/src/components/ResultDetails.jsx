@@ -1,5 +1,4 @@
 import React from "react";
-import { API_BASE } from "../lib/api";
 
 export default function ResultDetails({ result }) {
   if (!result) return null;
@@ -62,15 +61,6 @@ export default function ResultDetails({ result }) {
         <div className="mt-4 space-y-3">
           {result.coaching_feedback.map((tip) => (
             <p key={tip} className="rounded-lg border border-line bg-canvas p-3 text-slate-700">{tip}</p>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2 className="section-title">Pose Overlay Frames</h2>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {(result.overlay_frames || []).map((src) => (
-            <img key={src} src={`${API_BASE}${src}`} alt="Pose skeleton overlay" className="aspect-video rounded-lg border border-line object-cover" />
           ))}
         </div>
       </section>

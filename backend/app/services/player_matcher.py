@@ -42,18 +42,29 @@ class PlayerMatcher:
         if not scored:
             return self._no_match("No references available for this shot yet.", shot_slug)
         if all(entry.get("source_kind") == "shot_only" for _, entry, _ in scored):
-            best_score = scored[0][0]
+            best_score, best_entry, best_frames = scored[0]
+            shot_name = shot_slug.replace("_", " ")
             return {
                 "best_match": {
-                    "player": "Shot classified only",
-                    "category": scored[0][1].get("category", "batting"),
+                    "player": f"Closest {shot_name} reference",
+                    "category": best_entry.get("category", "batting"),
                     "score": round(best_score * 100, 2),
-                    "shot_type": shot_slug.replace("_", " "),
+                    "shot_type": shot_name,
                 },
-                "top_matches": [],
-                "similarity_breakdown": {},
-                "coaching_feedback": ["Shot-only dataset is active, so player style matching is intentionally disabled."],
-                "similarity_graph": [round(value * 100, 2) for value in graph_by_player.get(scored[0][1]["player"], [])],
+                # Rank the closest reference clips so the user sees how well they
+                # matched the best examples of this shot.
+                "top_matches": [
+                    {
+                        "player": f"Reference {i + 1}",
+                        "category": entry.get("category", "batting"),
+                        "score": round(score * 100, 2),
+                        "shot_type": entry["shot_type"],
+                    }
+                    for i, (score, entry, _) in enumerate(scored[:3])
+                ],
+                "similarity_breakdown": {key: round(value * 100, 2) for key, value in similarity_breakdown(frames, best_frames).items()},
+                "coaching_feedback": coaching_feedback(frames, best_frames, f"the ideal {shot_name}"),
+                "similarity_graph": [round(value * 100, 2) for value in graph_by_player.get(best_entry["player"], [])],
             }
 
         best_score, best_entry, best_frames = scored[0]
