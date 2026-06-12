@@ -15,8 +15,17 @@ class ReferenceIndex:
         self.shots_dir = shots_dir
         self.players_dir = players_dir
         self.legacy = DatasetService()
+        self._cache: Dict | None = None
 
     def load(self) -> Dict:
+        # References are static at runtime, so parse the (multi-MB) JSON once and
+        # reuse it across requests instead of re-reading from disk every time.
+        if self._cache is not None:
+            return self._cache
+        self._cache = self._build()
+        return self._cache
+
+    def _build(self) -> Dict:
         shots = self._load_shots()
         players = self._load_players()
         if shots:
