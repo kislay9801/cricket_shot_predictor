@@ -1,4 +1,7 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+// Normalize: trim whitespace and strip any trailing slash(es) so we never build
+// a URL like "https://host//upload-video" (which the backend 404s on).
+const RAW_API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+export const API_BASE = RAW_API_BASE.trim().replace(/\/+$/, "");
 
 async function parseResponse(response) {
   const payload = await response.json().catch(() => ({}));
