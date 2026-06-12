@@ -46,18 +46,18 @@ export default function WebcamMatch({ onResult }) {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="page-title">Webcam Pose Match</h1>
-          <p className="text-slate-400">Stand side-on with your full body in frame, then capture a key pose.</p>
+          <p className="mt-1 text-slate-500">Stand side-on with your full body in frame, then capture a key pose.</p>
         </div>
         <ModeToggle mode={mode} setMode={setMode} />
       </div>
       <section className="grid gap-5 lg:grid-cols-[1fr_320px]">
-        <div className="overflow-hidden rounded-lg border border-line bg-black">
+        <div className="overflow-hidden rounded-xl border border-line bg-slate-900 shadow-soft">
           <video ref={videoRef} autoPlay playsInline muted className="aspect-video w-full object-cover" />
           <canvas ref={canvasRef} className="hidden" />
         </div>
         <aside className="panel">
           <h2 className="section-title">Live Analyzer</h2>
-          <div className="mt-4 space-y-3 text-sm text-slate-300">
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
             <p>Single-frame webcam matching is fastest for live checks.</p>
             <p>For richer wrist trajectory scoring, use the upload mode with a short action clip.</p>
           </div>

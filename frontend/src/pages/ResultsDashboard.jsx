@@ -21,14 +21,14 @@ export default function ResultsDashboard({ result, setResult }) {
   }
 
   if (error) return <main className="mx-auto max-w-4xl px-5 py-10 text-coral">{error}</main>;
-  if (!result) return <main className="mx-auto max-w-4xl px-5 py-10 text-slate-300">Loading latest analysis...</main>;
+  if (!result) return <main className="mx-auto max-w-4xl px-5 py-10 text-slate-500">Loading latest analysis...</main>;
 
   return (
     <main className="mx-auto max-w-6xl space-y-5 px-5 py-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="page-title">Results Dashboard</h1>
-          <p className="text-slate-400">Session {result.session_id} · {result.frame_count} frames · {result.fps} FPS</p>
+          <p className="mt-1 text-slate-500">Session {result.session_id} · {result.frame_count} frames · {result.fps} FPS</p>
         </div>
         <div className="flex gap-3">
           <button className="secondary-btn" onClick={() => fetchResults(result.session_id).then(setResult)}><RefreshCw /> Refresh</button>

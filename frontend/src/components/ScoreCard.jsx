@@ -7,22 +7,22 @@ export default function ScoreCard({ result }) {
   return (
     <section className="grid gap-4 md:grid-cols-4">
       <div className="metric">
-        <Award className="h-5 w-5 text-gold" />
+        <div className="icon-chip bg-gold/12 text-gold"><Award className="h-5 w-5" /></div>
         <span>Closest match</span>
         <strong>{best.player}</strong>
       </div>
       <div className="metric">
-        <Gauge className="h-5 w-5 text-pitch" />
+        <div className="icon-chip bg-pitch/12 text-pitch"><Gauge className="h-5 w-5" /></div>
         <span>Match percentage</span>
         <strong>{best.score}%</strong>
       </div>
       <div className="metric">
-        <Activity className="h-5 w-5 text-coral" />
+        <div className="icon-chip bg-coral/12 text-coral"><Activity className="h-5 w-5" /></div>
         <span>Shot prediction</span>
         <strong>{result.shot_prediction}</strong>
       </div>
       <div className="metric">
-        <Gauge className="h-5 w-5 text-pitch" />
+        <div className="icon-chip bg-pitch/12 text-pitch"><Gauge className="h-5 w-5" /></div>
         <span>Shot confidence</span>
         <strong>{result.shot_confidence ?? 0}%</strong>
       </div>

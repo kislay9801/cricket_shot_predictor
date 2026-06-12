@@ -23,10 +23,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-ink text-slate-100">
-      <header className="sticky top-0 z-10 border-b border-line bg-ink/90 backdrop-blur">
+    <div className="min-h-screen text-ink">
+      <header className="sticky top-0 z-10 border-b border-line bg-panel/80 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
-          <button onClick={() => setPage("home")} className="text-left text-lg font-black text-white">Cricket Pose Matcher</button>
+          <button onClick={() => setPage("home")} className="flex items-center gap-2 text-left text-lg font-extrabold tracking-tight text-ink">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-pitch/12 text-pitch">🏏</span>
+            Cricket Pose Matcher
+          </button>
           <div className="flex gap-1">
             {nav.map(([key, Icon, label]) => (
               <button key={key} onClick={() => setPage(key)} className={`nav-btn ${page === key ? "active" : ""}`} title={label}>
