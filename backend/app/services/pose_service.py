@@ -48,13 +48,23 @@ class PoseService:
     def __init__(self) -> None:
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.45,
-            min_tracking_confidence=0.45,
-        )
+        # Lazy: the MediaPipe model is heavy, so we load it on first use rather than
+        # at import/startup. This keeps boot fast (health checks pass immediately) and
+        # avoids spiking memory before the server is even ready — important on small
+        # free-tier instances.
+        self._pose = None
+
+    @property
+    def pose(self):
+        if self._pose is None:
+            self._pose = self.mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=1,
+                enable_segmentation=False,
+                min_detection_confidence=0.45,
+                min_tracking_confidence=0.45,
+            )
+        return self._pose
 
     def decode_base64_image(self, image_base64: str) -> np.ndarray:
         payload = image_base64.split(",")[-1]
