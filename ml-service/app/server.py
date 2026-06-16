@@ -50,10 +50,18 @@ def root():
 
 @app.get("/health")
 def health():
+    # Lightweight on purpose — must NOT load the model, or platform health
+    # checks (Render) time out while MediaPipe initialises.
+    return {"status": "ok", "modelLoaded": _classifier is not None}
+
+
+@app.get("/info")
+def info():
+    """Model metadata — loads the classifier, so call it sparingly."""
     try:
         meta = get_classifier().meta
-        return {"status": "ok", "model": meta.get("model"),
-                "labels": meta.get("labels"), "cvAccuracy": meta.get("cv_accuracy")}
+        return {"model": meta.get("model"), "labels": meta.get("labels"),
+                "cvAccuracy": meta.get("cv_accuracy")}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=str(e))
 
