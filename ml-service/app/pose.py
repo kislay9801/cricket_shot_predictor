@@ -15,10 +15,12 @@ import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 
-# Lite model: ~3-4x faster + lighter than full — needed to fit free-tier
-# CPU/RAM (Render). Retrain whenever you switch models (features shift slightly).
+# Full model: the lite model's landmarks vary too much across platforms
+# (Windows train vs Linux serve), which collapsed predictions to one class on
+# Render. Full is more stable cross-platform; speed is kept in check by the
+# 48-frame cap in extract(). Retrain whenever you switch models.
 MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "pose_model", "pose_landmarker_lite.task"
+    os.path.dirname(os.path.dirname(__file__)), "pose_model", "pose_landmarker_full.task"
 )
 
 # BlazePose 33-landmark indices we care about.
