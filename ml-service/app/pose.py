@@ -66,7 +66,7 @@ class PoseExtractor:
         )
         self._landmarker = vision.PoseLandmarker.create_from_options(options)
 
-    def extract(self, video_path: str, max_samples: int = 48) -> PoseSequence:
+    def extract(self, video_path: str, max_samples: int = 96) -> PoseSequence:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise RuntimeError(f"Could not open video: {video_path}")

@@ -1,5 +1,5 @@
 {
-  "model": "RandomForest",
+  "model": "LogisticRegression",
   "labels": [
     "Cover Drive",
     "Pull Shot",
@@ -59,22 +59,22 @@
     "shoulder_rot",
     "hip_rot"
   ],
-  "cv_accuracy": 0.7143,
+  "cv_accuracy": 0.6905,
   "confusion_matrix": [
     [
-      8,
-      2,
-      3
+      7,
+      0,
+      6
     ],
     [
-      3,
-      10,
+      1,
+      12,
       1
     ],
     [
-      2,
-      1,
-      12
+      5,
+      0,
+      10
     ]
   ],
   "confusion_labels": [
