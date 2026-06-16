@@ -1,0 +1,37 @@
+{
+  "name": "shotsense",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ShotSense — AI-powered cricket shot recognition",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "ts-node --compiler-options {\"module\":\"commonjs\"} scripts/seed-firebase.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.51.1",
+    "firebase": "^10.12.4",
+    "firebase-admin": "^14.0.0",
+    "framer-motion": "^11.3.8",
+    "next": "14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-dropzone": "^14.2.3",
+    "react-hot-toast": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.11",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.35",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}

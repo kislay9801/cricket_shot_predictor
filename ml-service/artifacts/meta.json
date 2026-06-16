@@ -1,0 +1,88 @@
+{
+  "model": "LogisticRegression",
+  "labels": [
+    "Cover Drive",
+    "Pull Shot",
+    "Straight Drive"
+  ],
+  "feature_names": [
+    "elbow_l_mean",
+    "elbow_l_std",
+    "elbow_l_min",
+    "elbow_l_max",
+    "elbow_l_rng",
+    "elbow_r_mean",
+    "elbow_r_std",
+    "elbow_r_min",
+    "elbow_r_max",
+    "elbow_r_rng",
+    "knee_l_mean",
+    "knee_l_std",
+    "knee_l_min",
+    "knee_l_max",
+    "knee_l_rng",
+    "knee_r_mean",
+    "knee_r_std",
+    "knee_r_min",
+    "knee_r_max",
+    "knee_r_rng",
+    "sh_abd_l_mean",
+    "sh_abd_l_std",
+    "sh_abd_l_min",
+    "sh_abd_l_max",
+    "sh_abd_l_rng",
+    "sh_abd_r_mean",
+    "sh_abd_r_std",
+    "sh_abd_r_min",
+    "sh_abd_r_max",
+    "sh_abd_r_rng",
+    "spine_lean_mean",
+    "spine_lean_std",
+    "spine_lean_min",
+    "spine_lean_max",
+    "spine_lean_rng",
+    "wrist_height_mean",
+    "wrist_height_std",
+    "wrist_height_min",
+    "wrist_height_max",
+    "wrist_height_rng",
+    "hands_sep_mean",
+    "hands_sep_std",
+    "hands_sep_min",
+    "hands_sep_max",
+    "hands_sep_rng",
+    "horiz_range",
+    "vert_range",
+    "swing_ratio",
+    "path_len",
+    "peak_speed",
+    "shoulder_rot",
+    "hip_rot"
+  ],
+  "cv_accuracy": 0.7857,
+  "confusion_matrix": [
+    [
+      11,
+      1,
+      1
+    ],
+    [
+      1,
+      12,
+      1
+    ],
+    [
+      4,
+      1,
+      10
+    ]
+  ],
+  "confusion_labels": [
+    "Cover Drive",
+    "Pull Shot",
+    "Straight Drive"
+  ],
+  "n_train": 42,
+  "min_frames": 5,
+  "min_detection": 0.1
+}

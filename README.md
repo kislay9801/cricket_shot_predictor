@@ -1,230 +1,244 @@
-# Cricket Pose Matcher
+# 🏏 ShotSense — AI-powered cricket shot recognition
 
-Cricket Pose Matcher is a full-stack MVP for comparing a user's batting or bowling movement against famous-player reference pose sequences.
+Upload a batting clip (or try a sample) and ShotSense tells you **which cricket
+shot was played**, with a confidence score, alternate possibilities, detected
+technique indicators, a 16-shot reference library, side-by-side compare mode,
+and a per-device history with CSV export.
 
-## What It Does
+- **Frontend & backend:** Next.js 14 (App Router) + Tailwind CSS — no separate server
+- **Database:** Firebase Firestore
+- **File storage:** Firebase Storage
+- **Auth:** Anonymous Firebase sessions (no sign-up)
+- **ML:** A **real pose-based recognizer** trained on all of `dataset/batting/`
+  lives in [`ml-service/`](ml-service/) (MediaPipe Pose → biomechanical features
+  → classifier; **~79% leave-one-out accuracy** over Cover Drive / Pull Shot /
+  Straight Drive). The Next.js app calls it via `ML_INFERENCE_URL`, and falls
+  back to a built-in mock when that's unset.
+- **AI Coach:** Per-shot feedback (strengths, fixes, a drill) via Google Gemini
+  when `GEMINI_API_KEY` is set, with a built-in rule-based coach as fallback.
+- **Deploy:** Vercel (free) + Firebase (Spark free plan)
 
-- Webcam single-frame pose match
-- Uploaded video pose match
-- MediaPipe Pose landmark detection
-- Torso-scale landmark normalization
-- Joint-angle comparison for elbows, shoulders, hips, and knees
-- Wrist trajectory scoring across videos
-- Two-stage shot classification then player style matching
-- DTW sequence alignment and phase-weighted matching
-- Follow-through-heavy scoring
-- Top-3 player ranking, match percentage, shot confidence, similarity breakdown, overlay frames, FPS, and coaching feedback
+> **Demo mode:** the app runs without any Firebase config — the shot library
+> falls back to a built-in catalog and **"Try a sample clip"** works offline.
+> Uploads, history and prediction persistence require Firebase (steps below).
 
-## Project Structure
+---
 
-```text
-backend/
-  main.py
-  app/
-    api/routes.py
-    core/config.py
-    models/schemas.py
-    services/
-      pose_service.py
-      matching_service.py
-      dataset_service.py
-      session_service.py
-  scripts/
-    generate_starter_dataset.py
-    extract_reference.py
-frontend/
-  src/
-    components/
-    pages/
-    lib/api.js
-dataset/
-  clips/       # real MP4 input clips
-  shots/       # generated shot-mechanics index
-  players/     # generated player-style index
-```
-
-## Run Backend
+## 1. Quick start (local)
 
 ```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Open the API at `http://127.0.0.1:8000`. Do not open `http://0.0.0.0:8000` in the browser; `0.0.0.0` is only a server bind address.
-
-Uploaded video analysis is optimized for cricket clips by processing only the middle action window by default:
-
-```text
-0%–25%   ignored: run-up, waiting, setup
-25%–75%  analyzed: shot or bowling action
-75%–100% ignored: ball follow, replay, dead time
-```
-
-Tune this in `backend/app/core/config.py` with `VIDEO_ANALYSIS_START_RATIO`, `VIDEO_ANALYSIS_END_RATIO`, and `MAX_ANALYSIS_FRAMES`.
-
-API:
-
-- `POST /upload-video` with multipart `file` and `mode=batting|bowling`
-- `POST /webcam-frame` with JSON `{ "image_base64": "...", "mode": "batting" }`
-- `GET /results`
-- `GET /results?session_id=...`
-- `GET /report/{session_id}`
-
-## Run Frontend
-
-```bash
-cd frontend
 npm install
-npm run dev
+cp .env.example .env.local   # then fill in the values (see step 2)
+npm run dev                  # http://localhost:3000
 ```
 
-Open `http://localhost:5173`.
+You can explore the UI immediately in demo mode. To enable uploads + history,
+configure Firebase below.
 
-If Vite says `Port 5173 is in use` and starts on `5174` or `5175`, open the URL Vite prints. The backend allows local Vite ports through CORS.
-
-## Dataset Pipeline
-
-For the current MVP, prefer shot-only classification. Put mixed-player clips directly under the shot name:
-
-```text
-dataset/
-  cover_drive/
-    rohit_cover_1.mp4
-    kohli_cover_1.mp4
-    sachin_cover_1.mp4
-  pull_shot/
-    rohit_pull_1.mp4
-    warner_pull_1.mp4
-    ponting_pull_1.mp4
-```
-
-Then build the two-stage indexes:
+### Enable real shot recognition (the main feature)
 
 ```bash
-cd backend
-python scripts/build_dataset_indexes.py --strategy shot-only
+cd ml-service
+python -m venv .venv && .venv/Scripts/activate   # Windows (use source on mac/linux)
+pip install -r requirements.txt
+python -m app.train                              # train on dataset/batting (model is also pre-committed)
+python -m uvicorn app.server:app --port 8000     # start the inference API
 ```
 
-This writes:
+Then add to the Next.js `.env.local` and restart `npm run dev`:
 
-```text
-dataset/shots/<shot>/canonical.json
-dataset/shots/<shot>/shot_reference.json
+```env
+ML_INFERENCE_URL=http://127.0.0.1:8000/predict
 ```
 
-Shot-only mode predicts shot type and intentionally disables player style matching. The older synthetic generator is kept only for development fallback.
+Now uploads are classified by the trained model. See [ml-service/README.md](ml-service/README.md).
 
-## How Pose Matching Works
+---
 
-MediaPipe Pose is used because it gives real-time 33-point body landmarks on normal webcams and sports clips without training a detector from scratch. Each frame is converted into landmarks `[x, y, z, visibility]`.
+## 2. Firebase project setup
 
-The matcher normalizes landmarks by translating the body to the hip center and dividing by torso length:
+1. Go to the [Firebase Console](https://console.firebase.google.com/) → **Add project**.
+2. **Enable Anonymous Auth:** Build → **Authentication** → Get started →
+   **Sign-in method** → **Anonymous** → Enable.
+3. **Create Firestore:** Build → **Firestore Database** → Create database
+   (Production mode) → pick a region.
+4. **Create Storage:** Build → **Storage** → Get started.
+5. **Web app config (client keys):** Project settings ⚙ → **General** →
+   *Your apps* → **Web app** (`</>`). Copy the config values into `.env.local`:
 
-```text
-normalized_point = (point - hip_center) / ||shoulder_center - hip_center||
+   ```env
+   NEXT_PUBLIC_FIREBASE_API_KEY=...
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+   NEXT_PUBLIC_FIREBASE_APP_ID=...
+   ```
+
+6. **Service account (server keys, secret):** Project settings ⚙ →
+   **Service accounts** → **Generate new private key**. From the downloaded JSON:
+
+   ```env
+   FIREBASE_PROJECT_ID=your-project
+   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxx@your-project.iam.gserviceaccount.com
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   ```
+
+   > Keep the `\n` escapes inside the double quotes — the app converts them back
+   > to real newlines at runtime.
+
+---
+
+## 3. Security rules
+
+### Firestore rules
+
+Firestore → **Rules** → paste and Publish:
+
 ```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
 
-This reduces camera-distance and player-height effects. For each frame, the backend builds an embedding from key body joints, joint angles, and visibility. It compares a user frame to a reference frame with:
+    // Reference data — anyone can read, nobody writes from the client (seed via Admin SDK).
+    match /shots/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /shotClips/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-```text
-frame_score = 0.62 * cosine_similarity(embeddings) + 0.38 * angle_score
-```
-
-For video, sequences are aligned by resampling both actions to the same frame count. Final score blends aligned frame similarity with wrist trajectory similarity:
-
-```text
-sequence_score = 0.82 * mean(frame_scores) + 0.18 * wrist_trajectory_score
-```
-
-## Two-Stage Architecture
-
-Stage 1 classifies the shot:
-
-```text
-user sequence -> canonical shot embeddings -> cover drive / pull shot / straight drive / defense
-```
-
-Stage 2 matches player style only inside that shot bucket:
-
-```text
-predicted pull shot -> compare only shots/pull_shot/*.json
-```
-
-This prevents a weak cover drive from being matched against a pull-shot reference.
-
-## Cricket-Specific Matching Upgrades
-
-The matcher is phase-aware. It detects phases using joint angle velocity and acceleration peaks, then compares matching phases only:
-
-```text
-stance -> backswing -> impact -> follow-through
-```
-
-Impact and follow-through are weighted higher than stance because many shots share a similar setup but diverge during swing release. The player matching formula is:
-
-```text
-final_score =
-  0.35 * follow_through_similarity
-  0.25 * sequence_similarity
-  0.20 * phase_similarity
-  0.20 * torso_and_motion_similarity
-```
-
-If the final score is below `0.65`, the API returns `No confident match`.
-
-The final score now blends:
-
-- Phase-aligned pose similarity
-- Wrist, elbow, and shoulder velocity direction
-- Joint angle change over time
-- Torso rotation and hip-shoulder separation
-- Bat trajectory when a bat-like line is detected near the wrists
-
-The OpenCV bat cue uses Canny edges plus Hough line detection to find a long straight line near either wrist. It returns bat angle, normalized length, and confidence. For production, replace this lightweight detector with a YOLO cricket-bat model or manually annotated bat keypoints.
-
-## Example Output
-
-```json
-{
-  "best_match": { "player": "Virat Kohli", "score": 87.42, "shot_type": "cover drive" },
-  "similarity_breakdown": {
-    "elbow": 82.1,
-    "shoulder": 90.4,
-    "hip": 88.3,
-    "knee": 79.7,
-    "wrist_trajectory": 84.8
-  },
-  "coaching_feedback": [
-    "Front Elbow is 14.2 degrees more closed compared to Virat Kohli."
-  ]
+    // Predictions — readable/writable only by the signed-in (anonymous) owner.
+    match /predictions/{id} {
+      allow read, delete: if request.auth != null
+                          && resource.data.sessionId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.sessionId == request.auth.uid;
+      allow update: if false;
+    }
+  }
 }
 ```
 
-## ML Improvement Section
+> Predictions are created **server-side via the Admin SDK** (which bypasses
+> rules), so creation always works; the rules above govern client reads/deletes
+> on the History page.
 
-The backend classifies shots from canonical shot indexes using temporal sequence features. It looks at motion, not just a static pose:
+### Storage rules
 
-- wrist arc direction and speed
-- elbow angle range and velocity
-- hip/shoulder rotation range
-- front/back foot transfer
-- bat swing speed when a bat line is detected
+Storage → **Rules** → paste and Publish:
 
-To improve it further:
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
 
-- Add more real clips per player and shot type.
-- Store multiple `landmarks.json` files per class or merge many clips into one reference set.
-- Train a temporal model such as TCN, LSTM, or Transformer over frame embeddings.
-- Add bat/ball tracking for shot context.
+    // Public read for thumbnails and example clips.
+    match /shot-thumbnails/{file=**} { allow read: if true; allow write: if false; }
+    match /shot-clips/{file=**}      { allow read: if true; allow write: if false; }
 
-## Production Improvements
+    // Users can read/write only their own uploads (anonymous auth).
+    match /user-uploads/{sessionId}/{file=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == sessionId
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType.matches('video/.*');
+    }
+  }
+}
+```
 
-- Move analysis jobs to a queue for long videos.
-- Cache reference embeddings at startup.
-- Add user accounts and cloud session storage.
-- Use WebSocket streaming for continuous webcam scoring.
-- Quantize or batch pose inference for better throughput.
-- Add camera calibration and left/right handedness detection.
+---
+
+## 4. Seed the shot library
+
+Populates the `shots` collection with all 16 shot types:
+
+```bash
+npm run seed
+# or: npx ts-node scripts/seed-firebase.ts
+```
+
+Requires the **service account** vars (step 2.6) in `.env.local`.
+
+**(Optional) example clips & thumbnails** — upload to Storage following this
+structure, then add matching `shotClips` documents (or extend the seed script):
+
+```
+/shot-thumbnails/{shotId}.jpg          e.g. cover-drive.jpg
+/shot-clips/{shotId}/{clipId}.mp4
+/user-uploads/{sessionId}/{timestamp}.mp4   (created automatically on upload)
+```
+
+`shotId` matches the document id slug (e.g. `cover-drive`, `pull-shot`).
+
+---
+
+## 5. Deploy to Vercel
+
+1. Push this repo to GitHub and **Import** it in [Vercel](https://vercel.com).
+2. **Environment Variables** → add every key from `.env.example`
+   (all six `NEXT_PUBLIC_FIREBASE_*` **and** the three server vars
+   `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`).
+   For the private key, paste the full value including the `\n` escapes.
+3. Deploy. `vercel.json` gives the API routes a 30s max duration.
+4. In Firebase **Authentication → Settings → Authorized domains**, add your
+   Vercel domain (e.g. `your-app.vercel.app`).
+
+### (Optional) Real ML model
+
+Set `ML_INFERENCE_URL` to a service that accepts `POST { videoUrl }` and returns:
+
+```json
+{
+  "predictedShot": "Cover Drive",
+  "confidence": 87,
+  "topPredictions": [{ "shot": "Cover Drive", "confidence": 87 }],
+  "detectedIndicators": ["High elbow through impact"]
+}
+```
+
+`/api/predict` calls it automatically and falls back to the mock on failure.
+See the `TODO(real-model)` markers in `lib/inference.ts` and `app/api/predict/route.ts`.
+
+---
+
+## Project structure
+
+```
+app/
+  page.tsx                 Home / Predict (upload → analyze → result)
+  library/ compare/ history/ about/
+  api/predict/             POST — inference + Firestore persistence
+  api/shots/               GET  — shot catalog
+  api/shots/[id]/clips/    GET  — example clips for a shot
+components/                VideoUploader, VideoPlayer, ConfidenceRing,
+                           PredictionResult, ShotCard, ClipCarousel,
+                           ComparePlayer, FilterTabs, Modal, Skeletons, icons
+lib/
+  firebase.ts              client SDK (Firestore, Storage, anon Auth)
+  firebase-admin.ts        server Admin SDK
+  inference.ts             mock inference (swap for real model)
+  queries.ts               React Query hooks
+  storage.ts               resumable uploads + validation
+  session.tsx              anonymous session context
+  shots-data.ts            canonical 16-shot catalog (seed + fallback)
+scripts/seed-firebase.ts   seeds the shots collection
+```
+
+---
+
+## Pages
+
+| Route       | What it does                                                            |
+|-------------|-------------------------------------------------------------------------|
+| `/`         | Drag-drop upload, progress, preview, **Analyze Shot**, animated result  |
+| `/library`  | 16 shots in a filterable grid; modal with clips, technique & mistakes   |
+| `/compare`  | Your clip vs. a reference clip with synchronized play/pause             |
+| `/history`  | Your past analyses + stats, delete, **Export CSV**                      |
+| `/about`    | How it works, accuracy stats, FAQ accordion                             |
+
+Built with a strict **light theme**, fully **mobile-responsive**, Framer Motion
+transitions, and TanStack Query caching.
