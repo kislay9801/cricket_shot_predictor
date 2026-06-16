@@ -1,6 +1,7 @@
 """Load the trained model and classify / compare cricket clips."""
 from __future__ import annotations
 
+import gc
 import json
 import os
 import tempfile
@@ -92,12 +93,21 @@ class ShotClassifier:
             except OSError:
                 pass
 
+    def _vec_metrics(self, path: str):
+        """Extract one clip to (vector, metrics, n_frames), releasing the heavy
+        pose sequence immediately so a 2-clip compare peaks at ~single-clip
+        memory (fits Render's 512MB free tier)."""
+        feats, metrics, seq = self._features_for(path)
+        vec = features_to_vector(feats)
+        n = int(seq.n_frames)
+        del seq, feats
+        gc.collect()
+        return vec, metrics, n
+
     # ── Two-clip comparison ────────────────────────────────────────────────
     def compare_files(self, path_a: str, path_b: str) -> dict:
-        fa, ma, sa_seq = self._features_for(path_a)
-        fb, mb, sb_seq = self._features_for(path_b)
-        va = features_to_vector(fa)
-        vb = features_to_vector(fb)
+        va, ma, frames_a = self._vec_metrics(path_a)
+        vb, mb, frames_b = self._vec_metrics(path_b)
 
         # Similarity from the classifier's probability vectors — stable and
         # intuitive (same shot played similarly → high; different shots → low).
@@ -129,14 +139,14 @@ class ShotClassifier:
                 "matched": matched,
             })
 
-        low = sa_seq.n_frames < MIN_FRAMES or sb_seq.n_frames < MIN_FRAMES
+        low = frames_a < MIN_FRAMES or frames_b < MIN_FRAMES
 
         return {
             "similarity": similarity if not low else min(similarity, 40),
             "shotA": shot_a,
             "shotB": shot_b,
             "markers": markers,
-            "poseFramesA": int(sa_seq.n_frames),
-            "poseFramesB": int(sb_seq.n_frames),
+            "poseFramesA": frames_a,
+            "poseFramesB": frames_b,
             "lowSignal": low,
         }
