@@ -1,9 +1,13 @@
 FROM python:3.12-slim
 
 # System libraries MediaPipe / OpenCV need at runtime.
+# MediaPipe's graph links OpenGL ES + EGL even for CPU inference, so libgles2
+# and libegl1 are required in addition to the usual libgl1 / glib.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
+    libgles2 \
+    libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
