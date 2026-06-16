@@ -43,7 +43,14 @@ class PoseExtractor:
     """Reusable landmarker. Create once, call extract() many times."""
 
     def __init__(self, model_path: str = MODEL_PATH):
-        base = mp_python.BaseOptions(model_asset_path=model_path)
+        # Force the CPU delegate so landmark values are identical across
+        # environments. Otherwise MediaPipe may use a GPU/GL path where one is
+        # available (e.g. on the server) and produce shifted features that the
+        # locally-trained classifier misreads. Train + serve MUST match.
+        base = mp_python.BaseOptions(
+            model_asset_path=model_path,
+            delegate=mp_python.BaseOptions.Delegate.CPU,
+        )
         # IMAGE mode: each frame is detected independently. This lets a single
         # landmarker be reused across many clips (VIDEO mode requires strictly
         # increasing timestamps within one instance) and is plenty for the
