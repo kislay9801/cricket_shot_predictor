@@ -50,8 +50,14 @@ export async function POST(req: Request) {
       if (!res.ok) throw new Error(`ML endpoint ${res.status}`);
       inference = (await res.json()) as InferenceResult;
     } catch (err) {
-      console.error("ML inference failed, falling back to mock:", err);
-      inference = mockInference(videoUrl);
+      console.error("ML inference failed:", err);
+      return NextResponse.json(
+        {
+          error:
+            "Couldn't reach the analyzer — it may be waking up from sleep. Please try again in a moment.",
+        },
+        { status: 502 },
+      );
     }
   } else {
     // TODO(real-model): wire ML_INFERENCE_URL to a Python frame-extraction +

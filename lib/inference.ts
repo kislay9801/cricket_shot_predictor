@@ -75,24 +75,25 @@ export interface InferenceResult {
  * The API route already prefers ML_INFERENCE_URL when present and only falls
  * back to this mock.
  */
+// Only the shots the real model is actually trained on — the mock must never
+// surface a shot (e.g. Reverse Sweep) the system can't truly predict.
+const TRAINED_SHOTS = SHOTS.filter((s) =>
+  ["cover-drive", "pull-shot", "straight-drive"].includes(s.id),
+);
+
 export function mockInference(seedKey: string): InferenceResult {
   const rand = mulberry32(hashString(seedKey || "shotsense"));
 
   // Weighted pick — give a gentle bias so confident-looking results emerge.
-  const idx = Math.floor(rand() * SHOTS.length);
-  const primary = SHOTS[idx];
+  const idx = Math.floor(rand() * TRAINED_SHOTS.length);
+  const primary = TRAINED_SHOTS[idx];
 
   // Primary confidence between 62% and 96%.
   const confidence = Math.round((0.62 + rand() * 0.34) * 100);
 
-  // Two alternates: prefer shots in the same category for plausibility.
-  const sameCategory = SHOTS.filter(
-    (s) => s.id !== primary.id && s.category === primary.category,
-  );
-  const others = SHOTS.filter((s) => s.id !== primary.id);
-  const pool = sameCategory.length >= 2 ? sameCategory : others;
-
-  const shuffled = [...pool].sort(() => rand() - 0.5);
+  // Alternates are the other trained shots only.
+  const others = TRAINED_SHOTS.filter((s) => s.id !== primary.id);
+  const shuffled = [...others].sort(() => rand() - 0.5);
   const remaining = Math.max(2, 100 - confidence);
   const second = Math.round(remaining * (0.5 + rand() * 0.2));
   const third = Math.max(1, remaining - second);

@@ -44,8 +44,16 @@ export async function POST(req: Request) {
       if (!res.ok) throw new Error(`ML endpoint ${res.status}`);
       inference = (await res.json()) as InferenceResult;
     } catch (err) {
-      console.error("ML file inference failed, falling back to mock:", err);
-      inference = mockInference(file.name);
+      // ML is configured but unreachable — surface it instead of returning a
+      // misleading random mock result.
+      console.error("ML file inference failed:", err);
+      return NextResponse.json(
+        {
+          error:
+            "Couldn't reach the analyzer — it may be waking up from sleep. Please try again in a moment.",
+        },
+        { status: 502 },
+      );
     }
   } else {
     inference = mockInference(file.name);
