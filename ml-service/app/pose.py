@@ -15,8 +15,10 @@ import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 
+# Lite model: ~3-4x faster + lighter than full — needed to fit free-tier
+# CPU/RAM (Render). Retrain whenever you switch models (features shift slightly).
 MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "pose_model", "pose_landmarker_full.task"
+    os.path.dirname(os.path.dirname(__file__)), "pose_model", "pose_landmarker_lite.task"
 )
 
 # BlazePose 33-landmark indices we care about.
@@ -55,15 +57,16 @@ class PoseExtractor:
         )
         self._landmarker = vision.PoseLandmarker.create_from_options(options)
 
-    def extract(self, video_path: str, max_samples: int = 160) -> PoseSequence:
+    def extract(self, video_path: str, max_samples: int = 48) -> PoseSequence:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise RuntimeError(f"Could not open video: {video_path}")
 
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        # Sample up to `max_samples` frames evenly across the clip.
-        stride = max(1, total // max_samples) if total > 0 else 2
+        # Sample at most `max_samples` frames evenly (ceil division caps the
+        # count even for short clips → bounded, fast pose extraction).
+        stride = max(1, -(-total // max_samples)) if total > 0 else 2
 
         world_frames: list[np.ndarray] = []
         vis_frames: list[np.ndarray] = []

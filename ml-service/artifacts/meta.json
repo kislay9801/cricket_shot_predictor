@@ -62,8 +62,8 @@
   "cv_accuracy": 0.7857,
   "confusion_matrix": [
     [
-      11,
-      1,
+      9,
+      3,
       1
     ],
     [
@@ -72,9 +72,9 @@
       1
     ],
     [
-      4,
       1,
-      10
+      2,
+      12
     ]
   ],
   "confusion_labels": [

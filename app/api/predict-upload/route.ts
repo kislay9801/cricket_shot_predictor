@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       const res = await fetch(fileUrl, {
         method: "POST",
         body: fd,
-        signal: AbortSignal.timeout(28_000),
+        signal: AbortSignal.timeout(55_000),
       });
       if (!res.ok) throw new Error(`ML endpoint ${res.status}`);
       inference = (await res.json()) as InferenceResult;

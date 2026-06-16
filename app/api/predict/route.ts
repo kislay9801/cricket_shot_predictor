@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoUrl }),
         // keep within the function budget
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(55_000),
       });
       if (!res.ok) throw new Error(`ML endpoint ${res.status}`);
       inference = (await res.json()) as InferenceResult;
