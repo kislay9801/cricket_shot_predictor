@@ -7,7 +7,8 @@ the Next.js app when you set `ML_INFERENCE_URL`.
 ## How it works
 
 1. **Pose** — [MediaPipe Pose](https://ai.google.dev/edge/mediapipe) (Tasks API,
-   `pose_landmarker_full`) extracts 33 3D body landmarks per sampled frame.
+   `pose_landmarker_full`, **CPU delegate forced** so landmarks match across
+   platforms) extracts 33 3D body landmarks from up to **96 sampled frames**.
 2. **Features** — hip-centred *world* landmarks → biomechanical features that
    separate the shots: joint angles (elbow/knee/shoulder), torso lean, hand
    trajectory, **swing plane** (vertical vs cross-bat), shoulder/hip rotation,
@@ -18,11 +19,15 @@ the Next.js app when you set `ML_INFERENCE_URL`.
    shape the app expects.
 
 > **Scope:** the dataset has **3 shot types** — Cover Drive, Pull Shot,
-> Straight Drive — so the model predicts among those three. All 42 clips are
-> used (none skipped). Current honest metric: **~79% leave-one-out CV
-> accuracy** (Cover 85% / Pull 86% / Straight 67% recall). The clips are real
+> Straight Drive — so the model predicts among those three (~42 clips, all used).
+> Current honest metric: **~70% leave-one-out CV accuracy**. The clips are real
 > broadcast footage (camera cuts, wide angles), which is hard for pose
 > estimation — add more clean, side-on, single-shot clips per class to improve it.
+>
+> **Note on the model:** the *full* pose model is used deliberately — the *lite*
+> model's landmarks drift between platforms (Windows train vs Linux serve) and
+> collapsed every server prediction to one class. The CPU delegate + full model
+> keep train and serve consistent.
 
 ## Setup
 
@@ -56,11 +61,13 @@ python -m uvicorn app.server:app --host 0.0.0.0 --port 8000
 
 Endpoints:
 
-| Method | Path           | Body                         | Purpose                       |
-|--------|----------------|------------------------------|-------------------------------|
-| GET    | `/health`      | —                            | model name, labels, CV acc.   |
-| POST   | `/predict`     | `{ "videoUrl": "https://…" }`| classify a clip by URL        |
-| POST   | `/predict-file`| multipart `file=@clip.mp4`   | classify a local upload       |
+| Method | Path            | Body                          | Purpose                                  |
+|--------|-----------------|-------------------------------|------------------------------------------|
+| GET    | `/health`       | —                             | lightweight liveness (no model load)     |
+| GET    | `/info`         | —                             | model name, labels, CV accuracy          |
+| POST   | `/predict`      | `{ "videoUrl": "https://…" }` | classify a clip by URL                   |
+| POST   | `/predict-file` | multipart `file=@clip.mp4`    | classify a local upload                  |
+| POST   | `/compare-files`| multipart `fileA=…&fileB=…`   | compare two clips (the app does this client-side instead, to fit free-tier memory) |
 
 Response:
 
@@ -93,7 +100,12 @@ unreachable.
 ## Deploy
 
 This service needs a real container (MediaPipe + OpenCV won't run on Vercel
-serverless). Good free-ish options: **Render**, **Railway**, **Fly.io**, or
-**Google Cloud Run**. Expose port 8000, commit `artifacts/` (the trained model)
-so the container doesn't need to retrain, and set `ML_INFERENCE_URL` on Vercel
-to the deployed URL.
+serverless). The repo ships a `Dockerfile` + root `render.yaml` for **Render**
+(also works on Railway / Fly.io / Cloud Run). The trained model + pose model are
+committed, so deploys don't retrain. Set `ML_INFERENCE_URL` on Vercel to the
+deployed URL + `/predict`.
+
+**Free-tier (512 MB) caveats:** single-clip `/predict` fits and runs in ~20–25 s;
+the dyno cold-starts after idle. Two-clip `/compare-files` can exceed 512 MB, so
+the app compares by running two separate single-clip analyses and computing the
+similarity client-side instead.

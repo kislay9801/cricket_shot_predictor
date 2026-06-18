@@ -1,207 +1,208 @@
-# 🏏 ShotSense — AI-powered cricket shot recognition
+# 🏏 ShotSense — AI cricket shot recognition
 
-Upload a batting clip (or try a sample) and ShotSense tells you **which cricket
-shot was played**, with a confidence score, alternate possibilities, detected
-technique indicators, a 16-shot reference library, side-by-side compare mode,
-and a per-device history with CSV export.
+Upload a batting clip and ShotSense tells you **which cricket shot was played**
+— with a confidence score, alternate possibilities, detected technique
+indicators, per-clip biomechanics, an **AI coach**, a **two-clip comparison**,
+and a per-device **history**.
 
-- **Frontend & backend:** Next.js 14 (App Router) + Tailwind CSS — no separate server
-- **Database:** Firebase Firestore
-- **File storage:** Firebase Storage
-- **Auth:** Anonymous Firebase sessions (no sign-up)
-- **ML:** A **real pose-based recognizer** trained on all of `dataset/batting/`
-  lives in [`ml-service/`](ml-service/) (MediaPipe Pose → biomechanical features
-  → classifier; **~79% leave-one-out accuracy** over Cover Drive / Pull Shot /
-  Straight Drive). The Next.js app calls it via `ML_INFERENCE_URL`, and falls
-  back to a built-in mock when that's unset.
-- **AI Coach:** Per-shot feedback (strengths, fixes, a drill) via Google Gemini
-  when `GEMINI_API_KEY` is set, with a built-in rule-based coach as fallback.
-- **Deploy:** Vercel (free) + Firebase (Spark free plan)
+Live architecture: **Next.js (Vercel)** for the app + **Python/FastAPI (Render)**
+for the pose ML + **Firebase** (Firestore + anonymous auth) + **Gemini** for
+coaching.
 
-> **Demo mode:** the app runs without any Firebase config — the shot library
-> falls back to a built-in catalog and **"Try a sample clip"** works offline.
-> Uploads, history and prediction persistence require Firebase (steps below).
+> **Scope:** the model is trained on the clips in `dataset/batting/` and predicts
+> **3 shots** — **Cover Drive, Pull Shot, Straight Drive**. Add more clips and
+> retrain to improve it (see [Improving accuracy](#improving-accuracy)).
 
 ---
 
-## 1. Quick start (local)
+## Stack
+
+| Layer | Tech |
+|-------|------|
+| Frontend + API routes | Next.js 14 (App Router), Tailwind, Framer Motion, TanStack Query |
+| Design | "Elite Cricket AI" — Hanken Grotesk + JetBrains Mono, navy/green, Material Symbols |
+| ML service | FastAPI + MediaPipe Pose + scikit-learn (in [`ml-service/`](ml-service/)) |
+| Database / auth | Firebase Firestore + anonymous Auth |
+| AI coach | Google Gemini (`gemini-2.5-flash`), with a rule-based fallback |
+| Hosting | Vercel (web) + Render (ML, Docker) |
+
+## How it works
+
+1. You upload a clip on the home page.
+2. In the default **direct mode**, the clip is POSTed to the Next API route
+   (`/api/predict-upload`), which forwards it to the ML service's `/predict-file`.
+3. The ML service runs **MediaPipe Pose** over sampled frames → biomechanical
+   features (joint angles, swing plane, rotation, etc.) → a trained classifier →
+   predicted shot + confidence + per-clip metrics.
+4. The result is shown, the **AI coach** (Gemini) turns the prediction + metrics
+   into feedback, and the analysis is saved to your Firestore history.
+5. **Compare** runs two single-clip analyses and computes a biomechanical
+   similarity index client-side.
+
+If `ML_INFERENCE_URL` is unset, `/api/predict` returns a built-in **mock**
+(restricted to the 3 trained shots) so the UI is explorable without the ML service.
+
+## The model
+
+- **MediaPipe Pose (full model)**, CPU delegate forced so landmarks are
+  identical across machines (train on Windows, serve on Linux).
+- **96 frames** sampled per clip (balances accuracy vs. free-tier speed).
+- **~70% leave-one-out accuracy** over the 3 shots on the current ~42-clip
+  dataset. The model + pose model are committed under `ml-service/`.
+
+---
+
+## Local development
+
+You need **two terminals**: the web app and the ML service.
 
 ```bash
+# 1. Install + configure
 npm install
-cp .env.example .env.local   # then fill in the values (see step 2)
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local      # fill in values (see Environment variables)
+
+# 2. ML service (terminal A)
+cd ml-service
+python -m venv .venv && .venv/Scripts/activate      # Windows (source on mac/linux)
+pip install -r requirements.txt
+python -m uvicorn app.server:app --port 8000        # model is pre-trained & committed
+
+# 3. Web app (terminal B)
+npm run dev                                          # http://localhost:3000
 ```
 
-You can explore the UI immediately in demo mode. To enable uploads + history,
-configure Firebase below.
+Set `ML_INFERENCE_URL=http://127.0.0.1:8000/predict` in `.env.local` to use your
+local ML server, **or** point it at your deployed Render URL to skip running it
+locally.
 
-### Enable real shot recognition (the main feature)
+> ⚠️ Don't run `cp .env.example .env.local` again after filling it in — it
+> overwrites your keys.
+
+---
+
+## Environment variables
+
+`.env.local` (web app) — see `.env.example`:
+
+```env
+# ML service (the Python pose recognizer)
+ML_INFERENCE_URL=https://<your-render-service>.onrender.com/predict
+
+# Upload mode: false = analyse via the ML service (no Firebase Storage / no Blaze)
+NEXT_PUBLIC_ENABLE_STORAGE=false
+
+# Firebase CLIENT (public web keys)
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+
+# Firebase ADMIN (server-only, secret) — enables saving predictions to History
+FIREBASE_PROJECT_ID=your-project
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# AI coach (optional — falls back to rule-based feedback if unset)
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+The app degrades gracefully: no Firebase → demo mode; no Gemini → rule-based
+coach; no `ML_INFERENCE_URL` → mock predictions.
+
+---
+
+## Firebase setup
+
+1. [Firebase Console](https://console.firebase.google.com/) → **Add project**.
+2. **Authentication → Sign-in method → Anonymous → Enable.** (Powers per-device sessions/history.)
+3. **Firestore Database → Create database** (Production mode).
+4. **Firestore → Rules** → paste and Publish:
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /predictions/{id} {
+         allow read, delete: if request.auth != null
+                             && resource.data.sessionId == request.auth.uid;
+         allow create: if request.auth != null
+                       && request.resource.data.sessionId == request.auth.uid;
+         allow update: if false;
+       }
+     }
+   }
+   ```
+
+5. **Service account (for History):** Project settings → **Service accounts** →
+   **Generate new private key** → copy `project_id` / `client_email` /
+   `private_key` into the `FIREBASE_*` admin vars (keep the `\n` escapes).
+6. **Web config:** Project settings → **Your apps → Web app** → copy into the
+   `NEXT_PUBLIC_FIREBASE_*` vars.
+
+> **Firebase Storage is optional.** With `NEXT_PUBLIC_ENABLE_STORAGE=false`
+> (default) clips go straight to the ML service and nothing is stored — no Blaze
+> plan needed. To store clips in the cloud, enable Storage (requires the Blaze
+> plan), set the flag to `true`, and add Storage rules allowing anon writes to
+> `user-uploads/{uid}/`.
+
+---
+
+## ML service
+
+See [`ml-service/README.md`](ml-service/README.md) for details. Key commands:
 
 ```bash
 cd ml-service
-python -m venv .venv && .venv/Scripts/activate   # Windows (use source on mac/linux)
-pip install -r requirements.txt
-python -m app.train                              # train on dataset/batting (model is also pre-committed)
-python -m uvicorn app.server:app --port 8000     # start the inference API
+python -m uvicorn app.server:app --port 8000   # serve (model is committed)
+python -m app.train --no-cache                 # retrain on dataset/batting
 ```
 
-Then add to the Next.js `.env.local` and restart `npm run dev`:
-
-```env
-ML_INFERENCE_URL=http://127.0.0.1:8000/predict
-```
-
-Now uploads are classified by the trained model. See [ml-service/README.md](ml-service/README.md).
+Endpoints: `GET /health`, `GET /info`, `POST /predict` `{videoUrl}`,
+`POST /predict-file` (multipart). Returns predicted shot, confidence,
+`topPredictions`, `detectedIndicators`, and per-clip `metrics`.
 
 ---
 
-## 2. Firebase project setup
+## Deployment
 
-1. Go to the [Firebase Console](https://console.firebase.google.com/) → **Add project**.
-2. **Enable Anonymous Auth:** Build → **Authentication** → Get started →
-   **Sign-in method** → **Anonymous** → Enable.
-3. **Create Firestore:** Build → **Firestore Database** → Create database
-   (Production mode) → pick a region.
-4. **Create Storage:** Build → **Storage** → Get started.
-5. **Web app config (client keys):** Project settings ⚙ → **General** →
-   *Your apps* → **Web app** (`</>`). Copy the config values into `.env.local`:
+**ML service → Render** (Docker):
+1. render.com → **New → Blueprint** → pick this repo. It reads `render.yaml`
+   and builds `ml-service/` (model + pose model are committed, so no training on
+   deploy).
+2. Note the URL, e.g. `https://shotsense-ml.onrender.com`. Check `…/health`.
 
-   ```env
-   NEXT_PUBLIC_FIREBASE_API_KEY=...
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-   NEXT_PUBLIC_FIREBASE_APP_ID=...
+**Web app → Vercel:**
+1. vercel.com → **Add New → Project** → import this repo.
+2. Add all the env vars above. Set **`ML_INFERENCE_URL`** to your Render URL **+
+   `/predict`**. (`FIREBASE_PRIVATE_KEY`: paste with literal `\n`, no quotes.)
+3. Deploy. After changing env vars, **redeploy** so they take effect.
+4. Firebase → Authentication → **Authorized domains** → add your `*.vercel.app` domain.
+
+**Free-tier notes:**
+- Render free dynos sleep after ~15 min idle → first request cold-starts
+  (~30–60 s); the app shows "analyzer waking up — retry".
+- Vercel serverless caps request bodies at **4.5 MB**, so in direct mode keep
+  clips short. (Enable Firebase Storage to bypass this.)
+- `vercel.json` sets the API routes to a 60 s max duration.
+
+---
+
+## Improving accuracy
+
+The model's ceiling is the dataset (~14 clips/shot). To improve:
+
+1. **Add more clips** to `dataset/batting/{cover_drive,pull_shot,straight_drive}/`
+   — aim for 30–50+ per shot, varied players/angles/zoom, single shot per clip,
+   batter clearly visible.
+2. **Retrain + redeploy:**
+   ```bash
+   cd ml-service && python -m app.train --no-cache
+   git add ml-service/artifacts && git commit -m "Retrain" && git push   # Render auto-redeploys
    ```
-
-6. **Service account (server keys, secret):** Project settings ⚙ →
-   **Service accounts** → **Generate new private key**. From the downloaded JSON:
-
-   ```env
-   FIREBASE_PROJECT_ID=your-project
-   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxx@your-project.iam.gserviceaccount.com
-   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-   ```
-
-   > Keep the `\n` escapes inside the double quotes — the app converts them back
-   > to real newlines at runtime.
-
----
-
-## 3. Security rules
-
-### Firestore rules
-
-Firestore → **Rules** → paste and Publish:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // Reference data — anyone can read, nobody writes from the client (seed via Admin SDK).
-    match /shots/{id} {
-      allow read: if true;
-      allow write: if false;
-    }
-    match /shotClips/{id} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Predictions — readable/writable only by the signed-in (anonymous) owner.
-    match /predictions/{id} {
-      allow read, delete: if request.auth != null
-                          && resource.data.sessionId == request.auth.uid;
-      allow create: if request.auth != null
-                    && request.resource.data.sessionId == request.auth.uid;
-      allow update: if false;
-    }
-  }
-}
-```
-
-> Predictions are created **server-side via the Admin SDK** (which bypasses
-> rules), so creation always works; the rules above govern client reads/deletes
-> on the History page.
-
-### Storage rules
-
-Storage → **Rules** → paste and Publish:
-
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-
-    // Public read for thumbnails and example clips.
-    match /shot-thumbnails/{file=**} { allow read: if true; allow write: if false; }
-    match /shot-clips/{file=**}      { allow read: if true; allow write: if false; }
-
-    // Users can read/write only their own uploads (anonymous auth).
-    match /user-uploads/{sessionId}/{file=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == sessionId
-                   && request.resource.size < 50 * 1024 * 1024
-                   && request.resource.contentType.matches('video/.*');
-    }
-  }
-}
-```
-
----
-
-## 4. Seed the shot library
-
-Populates the `shots` collection with all 16 shot types:
-
-```bash
-npm run seed
-# or: npx ts-node scripts/seed-firebase.ts
-```
-
-Requires the **service account** vars (step 2.6) in `.env.local`.
-
-**(Optional) example clips & thumbnails** — upload to Storage following this
-structure, then add matching `shotClips` documents (or extend the seed script):
-
-```
-/shot-thumbnails/{shotId}.jpg          e.g. cover-drive.jpg
-/shot-clips/{shotId}/{clipId}.mp4
-/user-uploads/{sessionId}/{timestamp}.mp4   (created automatically on upload)
-```
-
-`shotId` matches the document id slug (e.g. `cover-drive`, `pull-shot`).
-
----
-
-## 5. Deploy to Vercel
-
-1. Push this repo to GitHub and **Import** it in [Vercel](https://vercel.com).
-2. **Environment Variables** → add every key from `.env.example`
-   (all six `NEXT_PUBLIC_FIREBASE_*` **and** the three server vars
-   `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`).
-   For the private key, paste the full value including the `\n` escapes.
-3. Deploy. `vercel.json` gives the API routes a 30s max duration.
-4. In Firebase **Authentication → Settings → Authorized domains**, add your
-   Vercel domain (e.g. `your-app.vercel.app`).
-
-### (Optional) Real ML model
-
-Set `ML_INFERENCE_URL` to a service that accepts `POST { videoUrl }` and returns:
-
-```json
-{
-  "predictedShot": "Cover Drive",
-  "confidence": 87,
-  "topPredictions": [{ "shot": "Cover Drive", "confidence": 87 }],
-  "detectedIndicators": ["High elbow through impact"]
-}
-```
-
-`/api/predict` calls it automatically and falls back to the mock on failure.
-See the `TODO(real-model)` markers in `lib/inference.ts` and `app/api/predict/route.ts`.
+   The training output prints leave-one-out accuracy + a confusion matrix.
 
 ---
 
@@ -209,36 +210,30 @@ See the `TODO(real-model)` markers in `lib/inference.ts` and `app/api/predict/ro
 
 ```
 app/
-  page.tsx                 Home / Predict (upload → analyze → result)
-  library/ compare/ history/ about/
-  api/predict/             POST — inference + Firestore persistence
-  api/shots/               GET  — shot catalog
-  api/shots/[id]/clips/    GET  — example clips for a shot
-components/                VideoUploader, VideoPlayer, ConfidenceRing,
-                           PredictionResult, ShotCard, ClipCarousel,
-                           ComparePlayer, FilterTabs, Modal, Skeletons, icons
+  page.tsx                   Home / Predict (upload → analyze → result + coach)
+  compare/ history/ about/   pages
+  not-found.tsx              custom 404
+  api/predict/               POST {videoUrl}  → ML or mock + Firestore save
+  api/predict-upload/        POST multipart   → ML /predict-file (direct mode)
+  api/coach/                 POST → Gemini (or rule-based) coaching
+  api/compare/               POST → ML /compare-files (legacy; UI now compares client-side)
+  api/shots/ , api/shots/[id]/clips/
+components/                  VideoUploader, VideoPlayer, ConfidenceRing,
+                            PredictionResult, CoachCard, Navbar, Modal, …
 lib/
-  firebase.ts              client SDK (Firestore, Storage, anon Auth)
-  firebase-admin.ts        server Admin SDK
-  inference.ts             mock inference (swap for real model)
-  queries.ts               React Query hooks
-  storage.ts               resumable uploads + validation
-  session.tsx              anonymous session context
-  shots-data.ts            canonical 16-shot catalog (seed + fallback)
-scripts/seed-firebase.ts   seeds the shots collection
+  firebase.ts / firebase-admin.ts   Firebase client + admin
+  inference.ts               mock inference (3 trained shots)
+  coach.ts                   Gemini + rule-based coaching
+  queries.ts / session.tsx / lastAnalysis.tsx / storage.ts / shots-data.ts / types.ts
+ml-service/                  FastAPI + MediaPipe pose recognizer (see its README)
+dataset/batting/             training clips (local; gitignored)
 ```
-
----
 
 ## Pages
 
-| Route       | What it does                                                            |
-|-------------|-------------------------------------------------------------------------|
-| `/`         | Drag-drop upload, progress, preview, **Analyze Shot**, animated result  |
-| `/library`  | 16 shots in a filterable grid; modal with clips, technique & mistakes   |
-| `/compare`  | Your clip vs. a reference clip with synchronized play/pause             |
-| `/history`  | Your past analyses + stats, delete, **Export CSV**                      |
-| `/about`    | How it works, accuracy stats, FAQ accordion                             |
-
-Built with a strict **light theme**, fully **mobile-responsive**, Framer Motion
-transitions, and TanStack Query caching.
+| Route | What it does |
+|-------|--------------|
+| `/` | Upload a clip → predicted shot, confidence, indicators, AI coach |
+| `/compare` | Compare two clips → biomechanical similarity + markers |
+| `/history` | Past analyses, stats, delete, CSV export |
+| `/about` | How it works, stats, FAQ |
